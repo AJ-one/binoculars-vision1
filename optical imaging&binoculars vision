@@ -1,0 +1,171 @@
+clear all;
+
+Uo=imread('9.1993.png');               %读入作为物的图像
+% Uo=imresize(Uo,[160,120])
+Uo=im2double(Uo)
+Uo=double(Uo(:,:,1));                      %调取第一层，转换为双精度
+% Uo=imresize(Uo,[2748,3840])
+%% Uo1
+i=0;
+for p=0.1:0.1:0.1
+a=0;b=40;
+Uo1=move(Uo,a,b);
+[c1,r1]=size(Uo1);                            %读取物面采样数
+
+lamda=750*10^(-9);k=2*pi/lamda;          %赋值波长,单位:米,波矢
+
+i=i+1
+D1(i)=p;
+% D=0.1;                                    %赋值透镜的孔径,单位:米
+f=0.6;                                     %赋值透镜的焦距,单位:米
+% figure,imshow(Uo1,[])
+Lo=0.001;                                  %物面尺寸,单位:米
+do=0.42;                                    %物到透镜的距离,亦即物瞳距,单位:米,可以改变
+di=do*f/(do-f);                            %透镜到观察屏的距离,单位:米
+cf(i)=D1(i)/2/lamda/di;                           %截止频率(瑞利观点)
+Li=Lo*di/do;                               %像面尺寸,单位:米
+kethi1=linspace(-1./2./Li,1./2./Li,r1).*r1;nenta1=linspace(-1./2./Li,1./2./Li,c1).*c1;
+[kethi1,nenta1]=meshgrid(kethi1,nenta1);       %像的二维频谱网格
+
+H1=zeros(c1,r1);                              %预设传递函数
+
+%% Uo2
+a=0;b=-40;
+Uo2=move(Uo,a,b);
+[c2,r2]=size(Uo2);                            %读取物面采样数
+kethi2=linspace(-1./2./Li,1./2./Li,r2).*r2;nenta2=linspace(-1./2./Li,1./2./Li,c2).*c2;
+[kethi2,nenta2]=meshgrid(kethi2,nenta2);       %像的二维频谱网格
+H2=zeros(c2,r2);                              %预设相干传递函数
+% figure,imshow(Uo2,[])
+
+%% H1
+
+for n1=1:c1
+   for m1=1:r1
+      if (kethi1(n1,m1)).^2+(nenta1(n1,m1)).^2<=cf(i).^2;
+            H1(n1,m1)=1;
+      end
+   end
+end
+%% H2
+for n2=1:c2
+   for m2=1:r2
+      if (kethi2(n2,m2)).^2+(nenta2(n2,m2)).^2<=cf(i).^2;
+            H2(n2,m2)=1;
+      end
+   end
+end
+
+%% left
+% figure,imshow(H1)%surfl(H1),shading interp,colormap(gray);title('相干传递函数CTF ')
+Gg1=fftshift(fft2(Uo1));                     %理想像的频谱
+
+Gic1=Gg1.*H1;                                 %相干照明下像的频谱
+Uic1=ifft2(Gic1);                            %相干照明下像的光场分布
+Iic1=Uic1.*conj(Uic1);                        %相干照明下像的光强分布
+% figure,imshow(Iic1,[]),title('相干照明下像的光强分布')
+
+%下面开始完成非相干照明下的成像计算
+%先用算法1计算OTF
+
+h1=fftshift(fft2(H1));                       %用(8-31)计算相干照明下脉冲相应
+
+HH1=abs(fftshift(fft2(h1.*conj(h1))));        %计算CTF的自相关运算
+OTF11=HH1./max(max(HH1));                     %对自相关运算结果作归一化
+% figure,surfl(OTF11),shading interp,colormap(gray);title('算法1得到的光学传递函数')
+
+%下面给出两种算法的成像结果
+Gii11=Gg1.*OTF11%.*exp(-j*k.*((Kethi-t).^2+Nenta.^2)/2/f);                             %非相干照明下像的频谱（用OTF1）
+left=abs(ifft2(Gii11));                     %非相干照明下的成像（用OTF1）
+% figure,imshow(left,[]),title('用OTF11得到的非相干照明成像'),colormap(gray)
+%% right
+% figure,imshow(H2)%surfl(H2),shading interp,colormap(gray);title('相干传递函数CTF ')
+Gg2=fftshift(fft2(Uo2));                     %理想像的频谱
+Gic2=Gg2.*H2;                                 %相干照明下像的频谱
+Uic2=ifft2(Gic2);                            %相干照明下像的光场分布
+Iic2=Uic2.*conj(Uic2);                        %相干照明下像的光强分布
+% figure,imshow(Iic2,[]),title('相干照明下像的光强分布')
+
+%下面开始完成非相干照明下的成像计算
+%先用算法1计算OTF
+
+h2=fftshift(fft2(H2));                       %用(8-31)计算相干照明下脉冲相应
+h2=h2
+HH2=abs(fftshift(fft2(h2.*conj(h2))));        %计算CTF的自相关运算
+OTF12=HH2./max(max(HH2));                     %对自相关运算结果作归一化
+% figure,surfl(OTF12),shading interp,colormap(gray);title('算法1得到的光学传递函数')
+
+%下面给出两种算法的成像结果
+Gii12=Gg2.*OTF12%.*exp(-j*k.*((Kethi+t).^2+Nenta.^2)/2/f);                             %非相干照明下像的频谱（用OTF1）
+right=abs(ifft2(Gii12));                     %非相干照明下的成像（用OTF1）
+% figure,imshow(right,[]),title('用OTF12得到的非相干照明成像'),colormap(gray)
+%%  特征提取
+ptsleft  = detectSURFFeatures(left);  %detectSURFFeatures函数实现了加速鲁棒特征（SURF）算法来查找斑点特征
+ptsright = detectSURFFeatures(right);%I是输入的灰度图像，返回值是一个 SURFPoints类，这个SURFPoints类包含了一些从这个灰度图像中提取的一些特征
+% ptsleft  = detectBRISKFeatures(left,'MinContrast',0.001); %detectBRISKFeatures函数使用二进制鲁棒不变可缩放关键点（BRISK）算法来检测多尺度角特征。
+% ptsright = detectBRISKFeatures(right,'MinContrast',0.001);
+%FREAK、Block、Auto
+[featuresleft,validPtsleft] = ...
+            extractFeatures(left,ptsleft);%这里的points就是刚刚detectSURFFeatures函数的返回值， I 就是输入的灰度图像
+[featuresright,validPtsright] = ...
+            extractFeatures(right,ptsright);
+
+%% 特征匹配        
+indexPairs = matchFeatures(featuresleft,featuresright,'MatchThreshold',0.0005,'MaxRatio',0.5);%indexPairs是返回的两幅图像匹配的指标
+%features就是上面extractFeatures函数的返回值中validpoints，然后只用输入想要配对的两张图片就可以了
+matchedleft  = validPtsleft(indexPairs(:,1));
+matchedright = validPtsright(indexPairs(:,2));
+
+% ILX1 = matchedleft.Location(:,1)                    %获取左右视图匹配点的坐标
+% ILY1 = matchedleft.Location(:,2) 
+% IRX1 = matchedright.Location(:,1) 
+% IRY1 = matchedright.Location(:,2) 
+
+% figure
+% showMatchedFeatures(left,right,matchedleft,matchedright)
+% title('Candidate matched points (including outliers)')
+%%  估计匹配点的几何变换
+[tformTotal,inlierrightXY,inlierleftXY] = ...
+    estimateGeometricTransform(matchedright,...
+        matchedleft,'similarity');%该函数使用M估计器抽样共识（MSAC）算法排除异常值。 MSAC算法是随机样本共识（RANSAC）算法的一种变体
+
+figure
+showMatchedFeatures(left,right,inlierleftXY,inlierrightXY)
+title('Matching points (inliers only)')
+legend('ptsleft','ptsright')
+%% 应用几何变换
+% outputView = imref2d(size(left));
+% recovered  = imwarp(right,tformTotal,'OutputView',outputView);
+% 
+% figure;
+% imshowpair(left,recovered,'montage')
+%% 计算深度
+ILX = inlierleftXY.Location(:,1)                    %获取左右视图匹配点的坐标
+ILY = inlierleftXY.Location(:,2) 
+IRX = inlierrightXY.Location(:,1) 
+IRY = inlierrightXY.Location(:,2) 
+number(i)=size(ILX,1)
+a=ones(number(i),1)
+true_parallax=80*a
+
+parallax=ILX-IRX;
+MSE=sum((parallax-true_parallax).^2)./number%均方误差
+RMSE=sqrt(sum((parallax-true_parallax).^2)./number)%均方根误差
+% parallax_average(i) = mean(parallax);
+parallax_error1_1(i)=mean(parallax-true_parallax);
+parallax_error1_2=sum(parallax-true_parallax)./number;
+% 
+% parallax_error2=(parallax_error1_1/80)*100
+distance = ((ILX - IRX).^2 + (ILY - IRY).^2).^0.5;  % 算出inlier的匹配点之间的像素距离
+actualdistance = distance * 1.67e-3;                % 将像素距离转换为现实实际距离
+translation = 0.5;                                   % 透镜的平移量
+f = 60;                                             % 焦距
+H = actualdistance + translation;
+depth = f*H./actualdistance;                        % 计算出深度
+averagedepth = mean(depth);
+Xp = translation*ILX./actualdistance
+Yp = translation*ILY./actualdistance
+Zp = depth
+P= [Xp, Yp ,Zp]
+end
+
